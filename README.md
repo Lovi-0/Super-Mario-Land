@@ -1,7 +1,6 @@
 
 <img src="logo.png" alt="logo" align="middle">
 
-# Super Mario Land Game State Monitor
 This is a Python project that monitors the game state of the classic Game Boy game "Super Mario Land" using the PyBoy emulator. The `MarioLandMonitor` class is responsible for reading and parsing the game's memory to extract information about Mario's state, the game timer, collected coins, and active enemies.
 
 ## Features
