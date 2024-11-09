@@ -1,6 +1,7 @@
 # 30.10.24
 
 import os
+import sys
 import time
 
 # External libraries
@@ -83,6 +84,7 @@ def main():
 
     except KeyboardInterrupt:
         console.print("\n[bold red]Stopped ...[/bold red]", style="bold red")
+        sys.exit(0)
         
     finally:
         pyboy.stop()

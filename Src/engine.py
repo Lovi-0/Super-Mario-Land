@@ -13,6 +13,9 @@ from .dataclass import Position, Timer, LocalPlayer, LandGame
 from .enemy import ENEMY_TYPES
 
 
+def bcm_to_dec(value: int) -> int:
+    return (value >> 4) * 10 + (value & 0x0F)
+
 class MarioLandMonitor:
     def __init__(self, pyboy_instance: PyBoy):
         self.pyboy = pyboy_instance
@@ -78,10 +81,28 @@ class MarioLandMonitor:
             
         return active_enemies
 
+    def _is_alive(self):
+
+        # 58  -> Game over
+        # 0   -> LandGame
+        # 15  -> StartUp 
+        # 1-4 -> Dead
+        GAME_STATES_DEAD = (1, 3, 4, 60)
+        TIMER_DEATH = 0x90
+
+        if self.pyboy.memory[Offset.GAME_OVER] in GAME_STATES_DEAD:
+            return False
+    
+        if self.pyboy.memory[Offset.POWERUP_STATUS_TIMER] == TIMER_DEATH:
+            return False
+
+        return True
+    
     def get_game_state(self):
         mario_state = self._read_mario_state()
         mario_position = self._calculate_position()
         active_enemies = self._scan_enemy_table()
+        int_livesLeft = bcm_to_dec(self.pyboy.memory[0xDA15])
 
         local_player = LocalPlayer(
             position=mario_position,
@@ -94,7 +115,8 @@ class MarioLandMonitor:
             powerup_status=self.memory[Offset.POWERUP_STATUS],
             hard_mode=bool(self.memory[Offset.HARD_MODE_FLAG]),
             powerup_status_timer=self.memory[Offset.POWERUP_STATUS_TIMER],
-            has_superball=bool(self.memory[Offset.HAS_SUPERBALL])
+            has_superball=bool(self.memory[Offset.HAS_SUPERBALL]),
+            
         )
 
         # Create the Timer instance using hundreds, tens, and ones memory values
@@ -111,11 +133,13 @@ class MarioLandMonitor:
             current_world=self.memory[Offset.CURRENT_WORLD],
             current_stage=self.memory[Offset.CURRENT_STAGE],
             score=self.game_wrapper.score,
-            lives=self.memory[Offset.LIVES],
+            lives=int_livesLeft,
             coins=coins,
             timer=timer,
             in_game=self.memory[Offset.IN_GAME] != 57,
-            game_over=self.memory[Offset.GAME_OVER] == 58
+            game_over=self.memory[Offset.GAME_OVER] == 58,
+            is_alive=self._is_alive(),
+            is_startup=self.pyboy.memory[Offset.GAME_OVER] == 15
         )
 
         return local_player, land_game, active_enemies
@@ -164,3 +188,5 @@ class MarioLandMonitor:
 
         # Update previous state
         self.previous_state = (local_player, land_game, active_enemies)
+
+

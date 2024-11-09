@@ -41,7 +41,7 @@ class LocalPlayer:
     powerup_status: int
     hard_mode: bool 
     powerup_status_timer: int
-    has_superball: bool  
+    has_superball: bool
 
 
 @dataclass
@@ -54,3 +54,5 @@ class LandGame:
     timer: Timer
     in_game: bool
     game_over: bool
+    is_alive: bool
+    is_startup: bool
