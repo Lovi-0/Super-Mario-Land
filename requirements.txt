@@ -1,2 +1,3 @@
 pyboy
+pygame
 rich

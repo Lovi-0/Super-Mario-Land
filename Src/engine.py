@@ -1,5 +1,6 @@
 # 28.10.24
 
+import math
 from typing import List, Dict
 
 
@@ -9,12 +10,22 @@ from pyboy import PyBoy
 
 # Internal utilities
 from .offset import Offset, EntityProperty
-from .dataclass import Position, Timer, LocalPlayer, LandGame
+from .dataclass import Position, Timer, LocalPlayer, LandGame, Entity, Rect
 from .enemy import ENEMY_TYPES
+
+
+# Variable
+SCALE = 3
 
 
 def bcm_to_dec(value: int) -> int:
     return (value >> 4) * 10 + (value & 0x0F)
+
+def create_rect(x: int, y: int, border: int) -> Rect:
+    return Rect(x * SCALE, y * SCALE, border * SCALE, border * SCALE)
+
+def calculate_distance(x1, y1, x2, y2):
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 class MarioLandMonitor:
     def __init__(self, pyboy_instance: PyBoy):
@@ -23,23 +34,20 @@ class MarioLandMonitor:
         self.memory = pyboy_instance.memory
         self.previous_state = None
         self.enemy_types = ENEMY_TYPES
-
+    
     def _calculate_position(self) -> Position:
-        level_block = self.memory[Offset.LEVEL_BLOCK]
-        rel_x = self.memory[Offset.MARIO_X_POS]
-        rel_y = self.memory[Offset.MARIO_Y_POS]
+        #level_block = self.memory[Offset.LEVEL_BLOCK]
+        rel_x = self.memory[Offset.MARIO_X_POS] - 16
+        rel_y = self.memory[Offset.MARIO_Y_POS] - 20
         scroll_x = self.memory[Offset.SCROLL_X]
 
         # Calculate real X position
-        real_offset = (scroll_x - 7) % 16 if (scroll_x - 7) % 16 != 0 else 16
-        abs_x = (level_block * 16) + real_offset + rel_x
+        #real_offset = (scroll_x - 7) % 16 if (scroll_x - 7) % 16 != 0 else 16
+        #abs_x = (level_block * 16) + real_offset + rel_x
 
         return Position(
-            x=abs_x,
+            x=rel_x,
             y=rel_y,
-            rel_x=rel_x,
-            rel_y=rel_y,
-            level_block=level_block,
             scroll_x=scroll_x
         )
 
@@ -55,29 +63,34 @@ class MarioLandMonitor:
             'grounded': bool(self.memory[Offset.GROUNDED])
         }
 
-    def _scan_enemy_table(self) -> List[Dict]:
+    def _scan_enemy_table(self, mario_position: Position) -> List[Dict]:
         active_enemies = []
         
         for i in range(10):
-            ptr_entity = Offset.ENTITY_LIST + (i * 0xC)
+            ptr_entity = Offset.ENTITY_LIST + (i * 0x10)
             entity = self.memory[ptr_entity]
-            health = self.memory[ptr_entity + EntityProperty.HP] 
+            health = self.memory[ptr_entity + EntityProperty.HP]
+            x_pos = self.memory[ptr_entity + EntityProperty.X_POS] - 9
+            y_pos = self.memory[ptr_entity + EntityProperty.Y_POS] - 18
+
+            # Calcola la distanza tra Mario e il nemico
+            distance = calculate_distance(mario_position.x * SCALE, mario_position.y * SCALE, x_pos * SCALE, y_pos * SCALE)
             
             if entity == 255:
                 continue
 
             if health == 0:
                 continue
-                
-            enemy = {
-                'type': self.enemy_types.get(entity, f"Unknown (0x{entity:02X})"),
-                'hp': health,
-                'pos_x': self.memory[ptr_entity + EntityProperty.X_POS],
-                'pos_y': self.memory[ptr_entity + EntityProperty.Y_POS],
-                'pose': self.memory[ptr_entity + EntityProperty.POSE],
-                'timer': self.memory[ptr_entity + EntityProperty.TIMER],
-            }
-            active_enemies.append(enemy)
+            
+            active_enemies.append(Entity(
+                type=self.enemy_types.get(entity, f"Unknown (0x{entity:02X})"),
+                position=Position(x_pos, y_pos, None),
+                rect=create_rect(x_pos, y_pos, 10),
+                hp=health,
+                pose=self.memory[ptr_entity + EntityProperty.POSE],
+                distance=distance,
+                collisione=(distance < 31)
+            ))
             
         return active_enemies
 
@@ -101,11 +114,12 @@ class MarioLandMonitor:
     def get_game_state(self):
         mario_state = self._read_mario_state()
         mario_position = self._calculate_position()
-        active_enemies = self._scan_enemy_table()
+        active_enemies = self._scan_enemy_table(mario_position)
         int_livesLeft = bcm_to_dec(self.pyboy.memory[0xDA15])
 
         local_player = LocalPlayer(
             position=mario_position,
+            rect=create_rect(mario_position.x, mario_position.y, 16),
             pose=self.memory[Offset.MARIO_POSE],
             direction=mario_state['direction'],
             jump_state=mario_state['jump_state'],
@@ -116,7 +130,6 @@ class MarioLandMonitor:
             hard_mode=bool(self.memory[Offset.HARD_MODE_FLAG]),
             powerup_status_timer=self.memory[Offset.POWERUP_STATUS_TIMER],
             has_superball=bool(self.memory[Offset.HAS_SUPERBALL]),
-            
         )
 
         # Create the Timer instance using hundreds, tens, and ones memory values
