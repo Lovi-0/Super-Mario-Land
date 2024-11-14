@@ -8,8 +8,8 @@ from pyboy import PyBoy
 
 
 # Internal utilities
-from Src.dataclass import Entity
-from Src.engine import MarioLandMonitor
+from Src.Engine.dataclass import Entity
+from Src.Engine.engine import MarioLandMonitor
 
 
 # Initialize Pygame and PyBoy

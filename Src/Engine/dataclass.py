@@ -52,6 +52,7 @@ class LocalPlayer:
 
 @dataclass
 class Entity:
+    i_type: int
     type: str
     position: Position
     rect: Rect

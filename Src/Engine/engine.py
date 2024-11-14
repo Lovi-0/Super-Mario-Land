@@ -83,6 +83,7 @@ class MarioLandMonitor:
                 continue
             
             active_enemies.append(Entity(
+                i_type=entity,
                 type=self.enemy_types.get(entity, f"Unknown (0x{entity:02X})"),
                 position=Position(x_pos, y_pos, None),
                 rect=create_rect(x_pos, y_pos, 10),

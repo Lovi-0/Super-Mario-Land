@@ -13,7 +13,7 @@ from rich import box
 
 
 # Internal utilities
-from Src.engine import MarioLandMonitor
+from Src.Engine.engine import MarioLandMonitor
 
 
 def main():
